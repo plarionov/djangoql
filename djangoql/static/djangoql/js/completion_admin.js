@@ -97,7 +97,8 @@
       introspections: 'introspect/',
       syntaxHelp: 'djangoql-syntax/',
       selector: 'textarea[name=q]',
-      autoResize: true
+      autoResize: true,
+      modelSchema: '/djangoql/model_schema/'
     });
   });
 }(window.DjangoQL));

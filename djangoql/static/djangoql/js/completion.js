@@ -258,34 +258,43 @@
       this.hideCompletion();
     },
 
+    sendModelSchemaRequest: function (url, callback, error) {
+      var request;
+      request = new XMLHttpRequest();
+      request.open('GET', url, true);
+      request.onload = function () {
+        if (request.status === 200) {
+          callback(request);
+        } else {
+          error(request);
+        }
+      }.bind(this);
+      request.ontimeout = error;
+      request.onerror = error;
+      /* eslint-disable max-len */
+      // Workaround for IE9, see
+      // https://cypressnorth.com/programming/internet-explorer-aborting-ajax-requests-fixed/
+      /* eslint-enable max-len */
+      request.onprogress = function () {};
+      window.setTimeout(request.send.bind(request));
+    },
+
     loadIntrospections: function (introspections) {
       var onLoadError;
       var request;
+      var sendCallback;
       if (typeof introspections === 'string') {
         // treat as URL
         onLoadError = function () {
           this.logError('failed to load introspections from ' + introspections);
         }.bind(this);
-        request = new XMLHttpRequest();
-        request.open('GET', introspections, true);
-        request.onload = function () {
+        sendCallback = function (request) {
           var data;
-          if (request.status === 200) {
-            data = JSON.parse(request.responseText);
-            this.currentModel = data.current_model;
-            this.models = data.models;
-          } else {
-            onLoadError();
-          }
+          data = JSON.parse(request.responseText);
+          this.currentModel = data.current_model;
+          this.models = data.models;
         }.bind(this);
-        request.ontimeout = onLoadError;
-        request.onerror = onLoadError;
-        /* eslint-disable max-len */
-        // Workaround for IE9, see
-        // https://cypressnorth.com/programming/internet-explorer-aborting-ajax-requests-fixed/
-        /* eslint-enable max-len */
-        request.onprogress = function () {};
-        window.setTimeout(request.send.bind(request));
+        this.sendModelSchemaRequest(introspections, sendCallback, onLoadError);
       } else if (this.isObject(introspections)) {
         this.currentModel = introspections.current_model;
         this.models = introspections.models;
@@ -294,6 +303,25 @@
             'introspections parameter is expected to be either URL or ' +
             'object with definitions, but ' + introspections + ' was found');
       }
+    },
+
+    updateIntrospections: function (modelPath) {
+      var onLoadError;
+      var sendCallback;
+      onLoadError = function () {
+        this.logError('failed to update introspections for ' + modelPath);
+      }.bind(this);
+      sendCallback = function (request) {
+          var data;
+          data = JSON.parse(request.responseText);
+          Object.assign(this.models, data.models);
+          this.popupCompletion();
+      }.bind(this);
+      this.sendModelSchemaRequest(this.getModelSchemaUrl(modelPath), sendCallback, onLoadError);
+    },
+
+    getModelSchemaUrl: function (modelPath) {
+      return this.options.modelSchema + modelPath
     },
 
     isObject: function (obj) {
@@ -595,6 +623,9 @@
             field = null;
             break;
           } else if (f.type === 'relation') {
+            if (!(f.relation in this.models)) {
+              this.updateIntrospections(f.relation);
+            }
             model = f.relation;
             field = null;
           } else {
@@ -747,9 +778,11 @@
 
       switch (context.scope) {
         case 'field':
-          this.suggestions = Object.keys(model).map(function (f) {
-            return suggestion(f, '', model[f].type === 'relation' ? '.' : ' ');
-          });
+          if (!!model) {
+              this.suggestions = Object.keys(model).map(function (f) {
+                  return suggestion(f, '', model[f].type === 'relation' ? '.' : ' ');
+              });
+          }
           break;
 
         case 'comparison':

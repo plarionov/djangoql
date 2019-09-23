@@ -43,6 +43,17 @@ Add ``'djangoql'`` to ``INSTALLED_APPS`` in your ``settings.py``:
     ]
 
 
+Add ``'djangoql'`` to ``urlpatterns`` in your ``urls.py``:
+
+.. code:: python
+
+    urlpatterns = [
+        ...
+        url(r'^djangoql/', include('djangoql.urls', namespace='djangoql')),
+        ...
+    ]
+
+
 Add it to your Django admin
 ---------------------------
 

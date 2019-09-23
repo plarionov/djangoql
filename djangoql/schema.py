@@ -3,6 +3,7 @@ from collections import OrderedDict, deque
 from datetime import datetime
 from decimal import Decimal
 
+from django.apps import apps
 from django.conf import settings
 from django.db import models
 from django.db.models import FieldDoesNotExist, ManyToManyRel, ManyToOneRel
@@ -290,6 +291,7 @@ class DjangoQLSchema(object):
     include = ()  # models to include into introspection
     exclude = ()  # models to exclude from introspection
     suggest_options = None
+    recursive_model_introspection = True
 
     def __init__(self, model):
         if not inspect.isclass(model) or not issubclass(model, models.Model):
@@ -355,7 +357,8 @@ class DjangoQLSchema(object):
                 if isinstance(field, RelationField):
                     if field.relation not in closed_set:
                         model_fields[field.name] = field
-                        open_set.append(field.related_model)
+                        if self.recursive_model_introspection:
+                            open_set.append(field.related_model)
                 else:
                     model_fields[field.name] = field
 
@@ -447,6 +450,10 @@ class DjangoQLSchema(object):
                     )
                 )
             if field.type == 'relation':
+                if not self.recursive_model_introspection \
+                        and field.relation not in self.models:
+                    model_cls = apps.get_model(field.relation)
+                    self.models.update(self.introspect(model_cls))
                 model = field.relation
                 field = None
         return field
@@ -477,3 +484,10 @@ class DjangoQLSchema(object):
             values = value if isinstance(node.right, List) else [value]
             for v in values:
                 field.validate(v)
+
+
+class NonRecursiveDjangoQLSchema(DjangoQLSchema):
+    """
+    DjangoQLSchema without recursive model introspection
+    """
+    recursive_model_introspection = False
