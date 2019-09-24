@@ -315,9 +315,15 @@
           var data;
           data = JSON.parse(request.responseText);
           Object.assign(this.models, data.models);
+          this.enableCompletion();
           this.popupCompletion();
       }.bind(this);
-      this.sendModelSchemaRequest(this.getModelSchemaUrl(modelPath), sendCallback, onLoadError);
+      this.disableCompletion();
+      this.sendModelSchemaRequest(
+          this.getModelSchemaUrl(modelPath),
+          sendCallback,
+          onLoadError
+      );
     },
 
     getModelSchemaUrl: function (modelPath) {
